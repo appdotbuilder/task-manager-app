@@ -1,16 +1,38 @@
 
+import { db } from '../db';
+import { foldersTable } from '../db/schema';
 import { type UpdateFolderInput, type Folder } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateFolder(input: UpdateFolderInput): Promise<Folder> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing folder's properties
-    // (name, parent) and persisting changes in the database.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Updated Folder',
-        parent_id: input.parent_id !== undefined ? input.parent_id : null,
-        user_id: 1, // Should get from context
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Folder);
-}
+export const updateFolder = async (input: UpdateFolderInput): Promise<Folder> => {
+  try {
+    // Build update object with only provided fields
+    const updateData: Partial<typeof foldersTable.$inferInsert> = {
+      updated_at: new Date()
+    };
+
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+
+    if (input.parent_id !== undefined) {
+      updateData.parent_id = input.parent_id;
+    }
+
+    // Update folder record
+    const result = await db.update(foldersTable)
+      .set(updateData)
+      .where(eq(foldersTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Folder with id ${input.id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Folder update failed:', error);
+    throw error;
+  }
+};
